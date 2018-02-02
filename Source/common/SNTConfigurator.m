@@ -208,7 +208,6 @@ static NSString *const kSyncCleanRequired = @"SyncCleanRequired";
     self.configData[kFileChangesRegexKey] = [re pattern];
   }
   self.cachedFileChangesRegex = nil;
-  [self saveSyncStateToDisk];
 }
 
 - (BOOL)enablePageZeroProtection {
