@@ -33,11 +33,10 @@
 /// Keys used by a mobileconfig or sync server
 @property(readonly, nonatomic) NSArray *syncServerKeys;
 @property(readonly, nonatomic) NSArray *mobileConfigKeys;
+@property(readonly, nonatomic) NSDictionary *keyObservingMap;
 @end
 
-@implementation SNTConfigurator {
-  volatile int32_t _reloading;
-}
+@implementation SNTConfigurator
 
 /// The hard-coded path to the sync state file.
 NSString *const kSyncStateFilePath = @"/var/db/santa/sync-state.plist";
@@ -88,7 +87,8 @@ static NSString *const kSyncCleanRequired = @"SyncCleanRequired";
 - (instancetype)init {
   self = [super init];
   if (self) {
-    _defaults = [[NSUserDefaults alloc] initWithSuiteName:kMobileConfigDomain];
+    _defaults = [NSUserDefaults standardUserDefaults];
+    [_defaults addSuiteNamed:@"com.google.santa"];
     _syncServerKeys = @[
         kClientModeKey, kWhitelistRegexKey, kBlacklistRegexKey, kFullSyncLastSuccess,
         kRuleSyncLastSuccess, kSyncCleanRequired
@@ -103,8 +103,10 @@ static NSString *const kSyncCleanRequired = @"SyncCleanRequired";
         kMachineOwnerKey, kMachineIDKey, kMachineOwnerPlistFileKey, kMachineOwnerPlistKeyKey,
         kMachineIDPlistFileKey, kMachineIDPlistKeyKey
     ];
-    _reloading = 0;
-    [self reloadConfigDataHelper];
+    _keyObservingMap = @{ kClientModeKey : NSStringFromSelector(@selector(clientMode)),
+                          kSyncBaseURLKey : NSStringFromSelector(@selector(syncBaseURL)) };
+    self.configData = [NSMutableDictionary dictionary];
+    [self reloadForcedConfig];
   }
   return self;
 }
@@ -343,46 +345,82 @@ static NSString *const kSyncCleanRequired = @"SyncCleanRequired";
   return machineId;
 }
 
-- (void)reloadConfigDataHelper {
-  // Load the mobileconfig
-  NSMutableDictionary *mobileConfig = [self mobileConfig];
-
-  if (!mobileConfig[kClientModeKey]) {
-    // Default to Monitor if the config is missing
-    mobileConfig[kClientModeKey] = @(SNTClientModeMonitor);
+- (void)reloadForcedConfig {
+  NSMutableDictionary *newValues = [NSMutableDictionary dictionary];
+  for (NSString *key in self.mobileConfigKeys) {
+    id obj = [self.defaults objectForKey:key];
+    if (obj && ![self.defaults objectIsForcedForKey:key inDomain:kMobileConfigDomain]) continue;
+    if (!obj) obj = [NSNull null];
+    if ([self.configData[key] isEqual:obj]) continue;
+    newValues[key] = obj;
   }
 
+  NSMutableDictionary *configDataCopy = [self.configData mutableCopy];
+  for (NSString *key in newValues) {
+    if ([newValues[key] isKindOfClass:[NSNull class]]) {
+      [configDataCopy removeObjectForKey:key];
+      continue;
+    }
+    configDataCopy[key] = newValues[key];
+  }
+
+  if (!configDataCopy[kClientModeKey]) {
+    // Default to Monitor if the config is missing
+    configDataCopy[kClientModeKey] = @(SNTClientModeMonitor);
+  }
+
+  NSMutableSet *changed = [NSMutableSet setWithArray:newValues.allKeys];
+
   // Nothing else to do if a sync server is not involved
-  if (!mobileConfig[kSyncBaseURLKey]) {
-    self.configData = mobileConfig;
+  if (!configDataCopy[kSyncBaseURLKey]) {
+    [self commit:configDataCopy changed:changed];
     return;
   }
 
   // Load the last known sync state
   if (![[NSFileManager defaultManager] fileExistsAtPath:kSyncStateFilePath]) {
-    self.configData = mobileConfig;
+    [self commit:configDataCopy changed:changed];
     return;
   }
   NSDictionary *syncState = [self syncState];
   if (!syncState) {
-    self.configData = mobileConfig;
+    [self commit:configDataCopy changed:changed];
     return;
   }
 
   // Overwrite or add the sync state to the running config
   for (NSString *key in [self syncServerKeys]) {
-    mobileConfig[key] = syncState[key];
+    configDataCopy[key] = syncState[key];
   }
-  self.configData = mobileConfig;
+  [self commit:configDataCopy changed:changed];
+}
+
+- (void)commit:(NSMutableDictionary *)configData changed:(NSSet *)changed {
+  [self willUpdate:changed];
+  self.configData = configData;
+  [self didUpdate:changed];
   [self saveSyncStateToDisk];
 }
 
-- (BOOL)reloadConfigData {
-  if (!OSAtomicCompareAndSwap32Barrier(0, 1, &_reloading)) return NO;
-  sleep(5); // Allow the on-disk changes to appear in NSUserDefaults
-  [self reloadConfigDataHelper];
-  OSAtomicCompareAndSwap32Barrier(1, 0, &_reloading);
-  return YES;
+- (void)willUpdate:(NSSet *)changed {
+  for (NSString *key in changed) {
+    NSString *sel = self.keyObservingMap[key];
+    if (sel) [self willChangeValueForKey:sel];
+  }
+}
+
+- (void)didUpdate:(NSSet *)changed {
+  for (NSString *key in changed) {
+    NSString *sel = self.keyObservingMap[key];
+    if (sel) [self didChangeValueForKey:sel];
+  }
+}
+
+- (void)startWatching {
+  [[NSNotificationCenter defaultCenter] addObserver:self
+                                           selector:@selector(defaultsChanged:)
+                                               name:NSUserDefaultsDidChangeNotification
+                                             object:nil];
 }
 
 #pragma mark Private
@@ -484,5 +522,11 @@ static NSString *const kSyncCleanRequired = @"SyncCleanRequired";
   }
   return config;
 }
+
+- (void)defaultsChanged:(void *)v {
+  SEL reload = @selector(reloadForcedConfig);
+  [NSObject cancelPreviousPerformRequestsWithTarget:self selector:reload object:nil];
+  [self performSelector:reload withObject:nil afterDelay:5.0f];
+};
 
 @end

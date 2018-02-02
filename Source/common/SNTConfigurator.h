@@ -201,11 +201,7 @@ extern NSString *const kMobileConfigFilePath;
 ///
 + (instancetype)configurator;
 
-///
-///  Re-read config data from configuration sources. Returns YES if the reload completed
-///  successfully, NO if a reload is currently in progress.
-///
-- (BOOL)reloadConfigData;
+- (void)startWatching;
 
 ///
 ///  Notify the receiver that the sync state file has changed.
