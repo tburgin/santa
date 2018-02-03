@@ -30,7 +30,8 @@ extern NSString *const kMobileConfigFilePath;
 ///
 ///  The operating mode.
 ///
-@property(nonatomic) SNTClientMode clientMode;
+@property(readonly, nonatomic) SNTClientMode clientMode;
+- (void)setSyncStateClientMode:(SNTClientMode)newMode;
 
 ///
 ///  The regex of paths to log file changes for. Regexes are specified in ICU format.
@@ -39,7 +40,7 @@ extern NSString *const kMobileConfigFilePath;
 ///  pointless as a path only ever has a single line.
 ///  If the regex doesn't begin with ^ to match from the beginning of the line, it will be added.
 ///
-@property(nonatomic) NSRegularExpression *fileChangesRegex;
+@property(readonly, nonatomic) NSRegularExpression *fileChangesRegex;
 
 ///
 ///  The regex of whitelisted paths. Regexes are specified in ICU format.
@@ -48,7 +49,8 @@ extern NSString *const kMobileConfigFilePath;
 ///  pointless as a path only ever has a single line.
 ///  If the regex doesn't begin with ^ to match from the beginning of the line, it will be added.
 ///
-@property(nonatomic) NSRegularExpression *whitelistPathRegex;
+@property(readonly, nonatomic) NSRegularExpression *whitelistPathRegex;
+- (void)setSyncStateWhitelistPathRegex:(NSRegularExpression *)regex;
 
 ///
 ///  The regex of blacklisted paths. Regexes are specified in ICU format.
@@ -57,7 +59,8 @@ extern NSString *const kMobileConfigFilePath;
 ///  pointless as a path only ever has a single line.
 ///  If the regex doesn't begin with ^ to match from the beginning of the line, it will be added.
 ///
-@property(nonatomic) NSRegularExpression *blacklistPathRegex;
+@property(readonly, nonatomic) NSRegularExpression *blacklistPathRegex;
+- (void)setSyncStateBlacklistPathRegex:(NSRegularExpression *)regex;
 
 ///
 ///  Enable __PAGEZERO protection, defaults to YES
@@ -200,12 +203,5 @@ extern NSString *const kMobileConfigFilePath;
 ///  Retrieve an initialized singleton configurator object using the default file path.
 ///
 + (instancetype)configurator;
-
-- (void)startWatching;
-
-///
-///  Notify the receiver that the sync state file has changed.
-///
-- (void)syncStateFileChanged:(unsigned long)data;
 
 @end

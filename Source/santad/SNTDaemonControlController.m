@@ -149,10 +149,10 @@ double watchdogRAMPeak = 0;
   if ([[SNTConfigurator configurator] clientMode] != mode) {
     // Flush cache if client just went into lockdown.
     if (mode == SNTClientModeLockdown) {
-      LOGI(@"Changed client mode, flushing cache.");
+      LOGI(@"Sync server changed client mode, flushing cache.");
       [self.driverManager flushCacheNonRootOnly:NO];
     }
-    [[SNTConfigurator configurator] setClientMode:mode];
+    [[SNTConfigurator configurator] setSyncStateClientMode:mode];
     [[self.notQueue.notifierConnection remoteObjectProxy] postClientModeNotification:mode];
   }
   reply();
@@ -186,7 +186,7 @@ double watchdogRAMPeak = 0;
   NSRegularExpression *re = [NSRegularExpression regularExpressionWithPattern:pattern
                                                                       options:0
                                                                         error:NULL];
-  [[SNTConfigurator configurator] setWhitelistPathRegex:re];
+  [[SNTConfigurator configurator] setSyncStateWhitelistPathRegex:re];
   LOGI(@"Received new whitelist regex, flushing cache");
   [self.driverManager flushCacheNonRootOnly:NO];
   reply();
@@ -196,7 +196,7 @@ double watchdogRAMPeak = 0;
   NSRegularExpression *re = [NSRegularExpression regularExpressionWithPattern:pattern
                                                                       options:0
                                                                         error:NULL];
-  [[SNTConfigurator configurator] setBlacklistPathRegex:re];
+  [[SNTConfigurator configurator] setSyncStateBlacklistPathRegex:re];
   LOGI(@"Received new blacklist regex, flushing cache");
   [self.driverManager flushCacheNonRootOnly:NO];
   reply();

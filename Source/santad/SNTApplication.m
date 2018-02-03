@@ -104,7 +104,6 @@
               forKeyPath:@"syncBaseURL"
                  options:NSKeyValueObservingOptionNew | NSKeyValueObservingOptionOld
                  context:NULL];
-    [_config startWatching];
 
 //    __block NSURL *origSyncURL = [[SNTConfigurator configurator] syncBaseURL];
 //    _configFileWatcher = [[SNTFileWatcher alloc] initWithFilePath:kMobileConfigFilePath
@@ -157,17 +156,7 @@
                       ofObject:(id)object
                         change:(NSDictionary<NSString *,id> *)change
                        context:(void *)context {
-  LOGI(@"observeValueForKeyPath %@: %@", keyPath, change);
-//  if ([keyPath isEqualToString:@"clientMode"]) {
-//    // Flush cache if client just went into lockdown.
-//    SNTClientMode mode = [self.config clientMode];
-//    if (change[@"new"] != change[@"old"] && change[@"new"] == SNTClientModeLockdown) {
-//      LOGI(@"Changed client mode, flushing cache.");
-//      [self.driverManager flushCacheNonRootOnly:NO];
-//    }
-//  } else if ([keyPath isEqualToString:@"syncBaseURL"]) {
-//
-//  }
+  LOGI(@"app: %@: %@", keyPath, change);
 }
 
 - (void)startSyncd {
