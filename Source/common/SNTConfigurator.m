@@ -20,8 +20,6 @@
 #import "SNTSystemInfo.h"
 
 @interface SNTConfigurator ()
-//@property NSMutableDictionary *configData;
-
 /// Creating NSRegularExpression objects is not fast, so cache them.
 @property NSRegularExpression *cachedFileChangesRegex;
 @property NSRegularExpression *cachedWhitelistDirRegex;
@@ -29,19 +27,11 @@
 
 /// A NSUserDefaults object set to use the com.google.santa suite.
 @property(readonly, nonatomic) NSUserDefaults *defaults;
+@property(readonly, nonatomic) NSUserDefaultsController *defaultsController;
 
-/// Keys used by a mobileconfig or sync server
-@property(readonly, nonatomic) NSArray *syncServerKeys;
-@property(readonly, nonatomic) NSArray *mobileConfigKeys;
-@property(readonly, nonatomic) NSArray *observableSelectors;
-
-@property NSMutableDictionary *syncState;
-
-
-/// Make readwrite
-@property(nonatomic) SNTClientMode clientMode;
-@property(nonatomic) NSURL *syncBaseURL;
-
+@property(nonatomic, readonly) NSMutableDictionary *syncState;
+@property SNTClientMode clientModeLastSeen;
+@property NSURL *syncBaseURLLastSeen;
 @end
 
 @implementation SNTConfigurator
@@ -51,9 +41,6 @@ NSString *const kSyncStateFilePath = @"/var/db/santa/sync-state.plist";
 
 /// The domain used by mobileconfig.
 static NSString *const kMobileConfigDomain = @"com.google.santa";
-
-/// The hard-coded path to the mobileconfig file.
-NSString *const kMobileConfigFilePath = @"/Library/Managed Preferences/com.google.santa.plist";
 
 /// The keys managed by a mobileconfig.
 static NSString *const kSyncBaseURLKey = @"SyncBaseURL";
@@ -98,20 +85,8 @@ static NSString *const kSyncCleanRequired = @"SyncCleanRequired";
   if (self) {
     _defaults = [NSUserDefaults standardUserDefaults];
     [_defaults addSuiteNamed:@"com.google.santa"];
-    _observableSelectors = @[
-        NSStringFromSelector(@selector(clientMode)),
-        NSStringFromSelector(@selector(syncBaseURL))
-    ];
     _syncState = [self readSyncStateFromDisk] ?: [NSMutableDictionary dictionary];
-    [_defaults addObserver:self
-              forKeyPath:kClientModeKey
-                 options:NSKeyValueObservingOptionNew | NSKeyValueObservingOptionOld
-                 context:NULL];
-    [_defaults addObserver:self
-              forKeyPath:kSyncBaseURLKey
-                 options:NSKeyValueObservingOptionNew | NSKeyValueObservingOptionOld
-                 context:NULL];
-    [self startWatching];
+    [self startWatchingDefaults];
   }
   return self;
 }
@@ -129,30 +104,30 @@ static NSString *const kSyncCleanRequired = @"SyncCleanRequired";
 
 #pragma mark Public Interface
 
-- (SNTClientMode)clientMode {
-  [self updateClientMode];
-  return _clientMode;
-}
-
-- (void)updateClientMode {
+- (SNTClientMode)clientModeAndUpdateLastSeen:(BOOL)update {
   NSInteger cm = SNTClientModeUnknown;
 
   NSNumber *mode = self.syncState[kClientModeKey];
   if (!mode) mode = [self forcedConfigNumberForKey:kClientModeKey];
   if ([mode respondsToSelector:@selector(longLongValue)]) cm = (NSInteger)[mode longLongValue];
   if (cm == SNTClientModeMonitor || cm == SNTClientModeLockdown) {
-    _clientMode = cm;
-    return;
+    if (update) self.clientModeLastSeen = cm;
+    return cm;
   }
 
   LOGE(@"Client mode was set to bad value: %ld. Resetting to MONITOR.", cm);
-  _clientMode = SNTClientModeMonitor;
+  if (update) self.clientModeLastSeen = cm;
+  return SNTClientModeMonitor;
+
 }
 
-- (void)setSyncStateClientMode:(SNTClientMode)newMode {
+- (SNTClientMode)clientMode {
+  return [self clientModeAndUpdateLastSeen:YES];
+}
+
+- (void)setClientMode:(SNTClientMode)newMode {
   if (newMode == SNTClientModeMonitor || newMode == SNTClientModeLockdown) {
     self.syncState[kClientModeKey] = @(newMode);
-    _clientMode = newMode; // don't trigger kvo
     [self saveSyncStateToDisk];
   } else {
     LOGW(@"Ignoring request to change client mode to %ld", newMode);
@@ -172,7 +147,7 @@ static NSString *const kSyncCleanRequired = @"SyncCleanRequired";
   return self.cachedWhitelistDirRegex;
 }
 
-- (void)setSyncStateWhitelistPathRegex:(NSRegularExpression *)re {
+- (void)setWhitelistPathRegex:(NSRegularExpression *)re {
   self.cachedWhitelistDirRegex = nil;
   self.syncState[kWhitelistRegexKey] = [re pattern];
   [self saveSyncStateToDisk];
@@ -191,7 +166,7 @@ static NSString *const kSyncCleanRequired = @"SyncCleanRequired";
   return self.cachedBlacklistDirRegex;
 }
 
-- (void)setSyncStateBlacklistPathRegex:(NSRegularExpression *)re {
+- (void)setBlacklistPathRegex:(NSRegularExpression *)re {
   self.cachedBlacklistDirRegex = nil;
   self.syncState[kBlacklistRegexKey] = [re pattern];
   [self saveSyncStateToDisk];
@@ -243,21 +218,16 @@ static NSString *const kSyncCleanRequired = @"SyncCleanRequired";
   return [self forcedConfigStringForKey:kModeNotificationLockdown];
 }
 
-- (NSURL *)syncBaseURL {
-  [self updateSyncBaseURL];
-  return _syncBaseURL;
+- (NSURL *)syncBaseURLAndUpdateLastSeen:(BOOL)update {
+  NSString *urlString = [self forcedConfigStringForKey:kSyncBaseURLKey];
+  NSURL *url = [NSURL URLWithString:urlString];
+  if (!url) LOGW(@"SyncBaseURL is not a valid URL!");
+  if (update) self.syncBaseURLLastSeen = url;
+  return url;
 }
 
-- (void)updateSyncBaseURL {
-  NSString *urlString = [self forcedConfigStringForKey:kSyncBaseURLKey];
-  if (urlString) {
-    NSURL *url = [NSURL URLWithString:urlString];
-    if (!url) LOGW(@"SyncBaseURL is not a valid URL!");
-    _syncBaseURL = url;
-    return;
-  }
-  _syncBaseURL = nil;
-  return;
+- (NSURL *)syncBaseURL {
+  return [self syncBaseURLAndUpdateLastSeen:YES];
 }
 
 - (NSString *)syncClientAuthCertificateFile {
@@ -285,7 +255,7 @@ static NSString *const kSyncCleanRequired = @"SyncCleanRequired";
 }
 
 - (NSDate *)fullSyncLastSuccess {
-  return [self forcedConfigDateForKey:kFullSyncLastSuccess];
+  return self.syncState[kFullSyncLastSuccess];
 }
 
 - (void)setFullSyncLastSuccess:(NSDate *)fullSyncLastSuccess {
@@ -340,31 +310,9 @@ static NSString *const kSyncCleanRequired = @"SyncCleanRequired";
 
 #pragma mark Private
 
-- (NSDate *)forcedConfigDateForKey:(NSString *)key {
-  id obj = [self forcedConfigValueForKey:key];
-  return [obj isKindOfClass:[NSDate class]] ? obj : nil;
-}
-
-- (NSData *)forcedConfigDataForKey:(NSString *)key {
-  id obj = [self forcedConfigValueForKey:key];
-  return [obj isKindOfClass:[NSData class]] ? obj : nil;
-}
-
-- (NSNumber *)forcedConfigNumberForKey:(NSString *)key {
-  id obj = [self forcedConfigValueForKey:key];
-  return [obj isKindOfClass:[NSNumber class]] ? obj : nil;
-}
-
-- (NSString *)forcedConfigStringForKey:(NSString *)key {
-  id obj = [self forcedConfigValueForKey:key];
-  return [obj isKindOfClass:[NSString class]] ? obj : nil;
-}
-
-- (id)forcedConfigValueForKey:(NSString *)key {
-  id obj = [self.defaults objectForKey:key];
-  return [self.defaults objectIsForcedForKey:key inDomain:kMobileConfigDomain] ? obj : nil;
-}
-
+///
+///  Read the saved syncState.
+///
 - (NSMutableDictionary *)readSyncStateFromDisk {
   NSMutableDictionary *syncState =
       [NSMutableDictionary dictionaryWithContentsOfFile:kSyncStateFilePath];
@@ -419,35 +367,53 @@ static NSString *const kSyncCleanRequired = @"SyncCleanRequired";
   }
 }
 
-- (void)startWatching {
+#pragma mark Private Defaults Methods
+
+- (NSData *)forcedConfigDataForKey:(NSString *)key {
+  id obj = [self forcedConfigValueForKey:key];
+  return [obj isKindOfClass:[NSData class]] ? obj : nil;
+}
+
+- (NSNumber *)forcedConfigNumberForKey:(NSString *)key {
+  id obj = [self forcedConfigValueForKey:key];
+  return [obj isKindOfClass:[NSNumber class]] ? obj : nil;
+}
+
+- (NSString *)forcedConfigStringForKey:(NSString *)key {
+  id obj = [self forcedConfigValueForKey:key];
+  return [obj isKindOfClass:[NSString class]] ? obj : nil;
+}
+
+- (id)forcedConfigValueForKey:(NSString *)key {
+  id obj = [self.defaults objectForKey:key];
+  return [self.defaults objectIsForcedForKey:key inDomain:kMobileConfigDomain] ? obj : nil;
+}
+
+- (void)startWatchingDefaults {
+  // Only santad should listen.
+  if (geteuid() != 0) return;
   [[NSNotificationCenter defaultCenter] addObserver:self
-                                           selector:@selector(forcedValuesChanged:)
+                                           selector:@selector(defaultsChanged:)
                                                name:NSUserDefaultsDidChangeNotification
                                              object:nil];
 }
 
-- (void)readKey {
-  [self.defaults objectForKey:kSyncBaseURLKey];
+- (void)defaultsChanged:(void *)v {
+  SEL handleChange = @selector(handleChange);
+  [NSObject cancelPreviousPerformRequestsWithTarget:self selector:handleChange object:nil];
+  [self performSelector:handleChange withObject:nil afterDelay:5.0f];
 }
 
-- (void)forcedValuesChanged:(void *)v {
-  [NSObject cancelPreviousPerformRequestsWithTarget:self selector:@selector(readKey) object:nil];
-  [self performSelector:@selector(readKey) withObject:nil afterDelay:5.0f];
-}
-
-- (void)observeValueForKeyPath:(NSString *)keyPath
-                      ofObject:(id)object
-                        change:(NSDictionary<NSString *,id> *)change
-                       context:(void *)context {
-  LOGI(@"config: %@: %@", keyPath, change);
-  if ([keyPath isEqualToString:kClientModeKey]) {
-    [self willChangeValueForKey:@"clientMode"];
-    [self updateClientMode];
-    [self didChangeValueForKey:@"clientMode"];
-  } else if ([keyPath isEqualToString:kSyncBaseURLKey]) {
-    [self willChangeValueForKey:@"syncBaseURL"];
-    [self updateSyncBaseURL];
-    [self didChangeValueForKey:@"syncBaseURL"];
+- (void)handleChange {
+  SNTClientMode newMode = [self clientModeAndUpdateLastSeen:NO];
+  if (newMode != self.clientModeLastSeen && newMode == SNTClientModeLockdown) {
+    self.clientModeLastSeen = newMode;
+    LOGI(@"lockdown! purge the cache!");
+  }
+  NSURL *newSyncBaseURL = [self syncBaseURLAndUpdateLastSeen:NO];
+  if (![newSyncBaseURL.absoluteString isEqualToString:self.syncBaseURLLastSeen.absoluteString]) {
+    self.syncBaseURLLastSeen = newSyncBaseURL;
+    LOGI(@"do somthing about the sync server!");
   }
 }
 

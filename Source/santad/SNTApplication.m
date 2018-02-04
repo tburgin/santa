@@ -28,7 +28,6 @@
 #import "SNTEventLog.h"
 #import "SNTEventTable.h"
 #import "SNTExecutionController.h"
-#import "SNTFileWatcher.h"
 #import "SNTLogging.h"
 #import "SNTNotificationQueue.h"
 #import "SNTRuleTable.h"
@@ -41,10 +40,7 @@
 @property SNTDriverManager *driverManager;
 @property SNTEventLog *eventLog;
 @property SNTExecutionController *execController;
-@property SNTFileWatcher *configFileWatcher;
-@property SNTFileWatcher *syncStateWatcher;
 @property SNTXPCConnection *controlConnection;
-@property SNTConfigurator *config;
 @end
 
 @implementation SNTApplication
@@ -95,47 +91,6 @@
     _controlConnection.exportedObject = dc;
     [_controlConnection resume];
 
-    _config = [SNTConfigurator configurator];
-    [_config addObserver:self
-             forKeyPath:@"clientMode"
-                options:NSKeyValueObservingOptionNew | NSKeyValueObservingOptionOld
-                context:NULL];
-    [_config addObserver:self
-              forKeyPath:@"syncBaseURL"
-                 options:NSKeyValueObservingOptionNew | NSKeyValueObservingOptionOld
-                 context:NULL];
-
-//    __block NSURL *origSyncURL = [[SNTConfigurator configurator] syncBaseURL];
-//    _configFileWatcher = [[SNTFileWatcher alloc] initWithFilePath:kMobileConfigFilePath
-//                                                          handler:^(unsigned long data) {
-//      if (data & DISPATCH_VNODE_ATTRIB) return;
-//      if (![[SNTConfigurator configurator] reloadConfigData]) return;
-//      LOGI(@"Mobileconfig changed, reloading.");
-//
-//      // Flush cache if client just went into lockdown.
-//      SNTClientMode newMode = [[SNTConfigurator configurator] clientMode];
-//      if (origMode != newMode) {
-//        origMode = newMode;
-//        if (newMode == SNTClientModeLockdown) {
-//          LOGI(@"Changed client mode, flushing cache.");
-//          [self.driverManager flushCacheNonRootOnly:NO];
-//        }
-//      }
-//
-//      // Start santactl if the syncBaseURL changed from nil --> somthing
-//      NSURL *syncURL = [[SNTConfigurator configurator] syncBaseURL];
-//      if (!origSyncURL && syncURL) {
-//        origSyncURL = syncURL;
-//        LOGI(@"SyncBaseURL added, starting santactl.");
-//        [self startSyncd];
-//      }
-//    }];
-//
-//    _syncStateWatcher = [[SNTFileWatcher alloc] initWithFilePath:kSyncStateFilePath
-//                                                         handler:^(unsigned long data) {
-//      [[SNTConfigurator configurator] syncStateFileChanged:data];
-//    }];
-
     // Initialize the binary checker object
     _execController = [[SNTExecutionController alloc] initWithDriverManager:_driverManager
                                                                   ruleTable:ruleTable
@@ -150,13 +105,6 @@
   }
 
   return self;
-}
-
-- (void)observeValueForKeyPath:(NSString *)keyPath
-                      ofObject:(id)object
-                        change:(NSDictionary<NSString *,id> *)change
-                       context:(void *)context {
-  LOGI(@"app: %@: %@", keyPath, change);
 }
 
 - (void)startSyncd {

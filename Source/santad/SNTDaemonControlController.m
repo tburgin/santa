@@ -152,7 +152,7 @@ double watchdogRAMPeak = 0;
       LOGI(@"Sync server changed client mode, flushing cache.");
       [self.driverManager flushCacheNonRootOnly:NO];
     }
-    [[SNTConfigurator configurator] setSyncStateClientMode:mode];
+    [[SNTConfigurator configurator] setClientMode:mode];
     [[self.notQueue.notifierConnection remoteObjectProxy] postClientModeNotification:mode];
   }
   reply();
@@ -186,7 +186,7 @@ double watchdogRAMPeak = 0;
   NSRegularExpression *re = [NSRegularExpression regularExpressionWithPattern:pattern
                                                                       options:0
                                                                         error:NULL];
-  [[SNTConfigurator configurator] setSyncStateWhitelistPathRegex:re];
+  [[SNTConfigurator configurator] setWhitelistPathRegex:re];
   LOGI(@"Received new whitelist regex, flushing cache");
   [self.driverManager flushCacheNonRootOnly:NO];
   reply();
@@ -196,7 +196,7 @@ double watchdogRAMPeak = 0;
   NSRegularExpression *re = [NSRegularExpression regularExpressionWithPattern:pattern
                                                                       options:0
                                                                         error:NULL];
-  [[SNTConfigurator configurator] setSyncStateBlacklistPathRegex:re];
+  [[SNTConfigurator configurator] setBlacklistPathRegex:re];
   LOGI(@"Received new blacklist regex, flushing cache");
   [self.driverManager flushCacheNonRootOnly:NO];
   reply();

@@ -16,9 +16,6 @@
 
 #import "SNTCommonEnums.h"
 
-extern NSString *const kSyncStateFilePath;
-extern NSString *const kMobileConfigFilePath;
-
 ///
 ///  Singleton that provides an interface for managing configuration values on disk
 ///  @note This class is designed as a singleton but that is not strictly enforced.
@@ -30,8 +27,7 @@ extern NSString *const kMobileConfigFilePath;
 ///
 ///  The operating mode.
 ///
-@property(readonly, nonatomic) SNTClientMode clientMode;
-- (void)setSyncStateClientMode:(SNTClientMode)newMode;
+@property(nonatomic) SNTClientMode clientMode;
 
 ///
 ///  The regex of paths to log file changes for. Regexes are specified in ICU format.
@@ -49,8 +45,7 @@ extern NSString *const kMobileConfigFilePath;
 ///  pointless as a path only ever has a single line.
 ///  If the regex doesn't begin with ^ to match from the beginning of the line, it will be added.
 ///
-@property(readonly, nonatomic) NSRegularExpression *whitelistPathRegex;
-- (void)setSyncStateWhitelistPathRegex:(NSRegularExpression *)regex;
+@property(nonatomic) NSRegularExpression *whitelistPathRegex;
 
 ///
 ///  The regex of blacklisted paths. Regexes are specified in ICU format.
@@ -59,8 +54,7 @@ extern NSString *const kMobileConfigFilePath;
 ///  pointless as a path only ever has a single line.
 ///  If the regex doesn't begin with ^ to match from the beginning of the line, it will be added.
 ///
-@property(readonly, nonatomic) NSRegularExpression *blacklistPathRegex;
-- (void)setSyncStateBlacklistPathRegex:(NSRegularExpression *)regex;
+@property(nonatomic) NSRegularExpression *blacklistPathRegex;
 
 ///
 ///  Enable __PAGEZERO protection, defaults to YES
