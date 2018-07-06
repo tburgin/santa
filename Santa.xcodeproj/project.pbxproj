@@ -1057,11 +1057,31 @@
 			attributes = {
 				LastUpgradeCheck = 0910;
 				TargetAttributes = {
+					0D0016A1192BCD3C005E7FCD = {
+						DevelopmentTeam = 998Z9C32TC;
+					};
 					0D260DAB18B68E12002A0B55 = {
+						DevelopmentTeam = 998Z9C32TC;
 						TestTargetID = 0D385DB5180DE4A900418BC6;
+					};
+					0D35BD9D18FD71CE00921A21 = {
+						DevelopmentTeam = 998Z9C32TC;
+					};
+					0D385DB5180DE4A900418BC6 = {
+						DevelopmentTeam = 998Z9C32TC;
+					};
+					0D91BCB3174E8A7E00131A7D = {
+						DevelopmentTeam = 998Z9C32TC;
+					};
+					0D91BCDC174E8AE600131A7D = {
+						DevelopmentTeam = 998Z9C32TC;
+					};
+					0D9A7F3C1759330400035EB5 = {
+						DevelopmentTeam = 998Z9C32TC;
 					};
 					C78227531E1C3C58006EB2D6 = {
 						CreatedOnToolsVersion = 7.3.1;
+						DevelopmentTeam = 998Z9C32TC;
 					};
 				};
 			};
@@ -1923,7 +1943,7 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				LLVM_LTO = NO;
-				MACOSX_DEPLOYMENT_TARGET = 10.9;
+				MACOSX_DEPLOYMENT_TARGET = 10.11;
 				ONLY_ACTIVE_ARCH = YES;
 				PROVISIONING_PROFILE = "";
 				RUN_CLANG_STATIC_ANALYZER = YES;
@@ -1974,7 +1994,7 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				LLVM_LTO = YES;
-				MACOSX_DEPLOYMENT_TARGET = 10.9;
+				MACOSX_DEPLOYMENT_TARGET = 10.11;
 				OTHER_CODE_SIGN_FLAGS = "-o library,kill";
 				PROVISIONING_PROFILE = "";
 				RUN_CLANG_STATIC_ANALYZER = YES;

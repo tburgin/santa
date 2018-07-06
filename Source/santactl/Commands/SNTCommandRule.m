@@ -21,7 +21,6 @@
 #import <MOLCodesignChecker/MOLCodesignChecker.h>
 #import <MOLXPCConnection/MOLXPCConnection.h>
 
-#import "SNTConfigurator.h"
 #import "SNTDropRootPrivs.h"
 #import "SNTFileInfo.h"
 #include "SNTLogging.h"
@@ -69,8 +68,11 @@ REGISTER_COMMAND_NAME(@"rule")
 }
 
 - (void)runWithArguments:(NSArray *)arguments {
-  SNTConfigurator *config = [SNTConfigurator configurator];
-  if ([config syncBaseURL] && ![arguments containsObject:@"--check"]) {
+  __block NSURL *syncBaseURL;
+  [self.daemonConn.synchronousRemoteObjectProxy syncBaseURL:^(NSURL *url) {
+    syncBaseURL = url;
+  }];
+  if (syncBaseURL && ![arguments containsObject:@"--check"]) {
     printf("SyncBaseURL is set, rules are managed centrally.\n");
     exit(1);
   }

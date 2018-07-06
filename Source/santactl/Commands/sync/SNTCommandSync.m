@@ -20,7 +20,6 @@
 #import <MOLXPCConnection/MOLXPCConnection.h>
 
 #import "SNTCommandSyncManager.h"
-#import "SNTConfigurator.h"
 #import "SNTDropRootPrivs.h"
 #import "SNTLogging.h"
 #import "SNTXPCControlInterface.h"
@@ -41,7 +40,8 @@ REGISTER_COMMAND_NAME(@"sync")
 }
 
 + (BOOL)requiresDaemonConn {
-  return NO;
+  // Connect to santad while we are root, so that we pass the XPC authentication
+  return YES;
 }
 
 + (NSString *)shortHelpText {
@@ -57,22 +57,25 @@ REGISTER_COMMAND_NAME(@"sync")
 }
 
 - (void)runWithArguments:(NSArray *)arguments {
-  // Connect to santad while we are root, so that we pass the XPC authentication
-  [self.daemonConn resume];
-
   // Ensure we have no privileges
   if (!DropRootPrivileges()) {
     LOGE(@"Failed to drop root privileges. Exiting.");
     exit(1);
   }
 
-  if (![[SNTConfigurator configurator] syncBaseURL]) {
+  // Get the sync server URL from santad
+  __block NSURL *syncBaseURL;
+  [self.daemonConn.synchronousRemoteObjectProxy syncBaseURL:^(NSURL *url) {
+    syncBaseURL = url;
+  }];
+  if (!syncBaseURL) {
     LOGE(@"Missing SyncBaseURL. Exiting.");
     exit(1);
   }
 
   BOOL daemon = [arguments containsObject:@"--daemon"];
   self.syncManager = [[SNTCommandSyncManager alloc] initWithDaemonConnection:self.daemonConn
+                                                                 syncBaseURL:syncBaseURL
                                                                     isDaemon:daemon];
 
   // Dropping root privileges to the 'nobody' user causes the default NSURLCache to throw

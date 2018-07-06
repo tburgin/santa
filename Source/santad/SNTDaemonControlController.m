@@ -220,6 +220,74 @@ double watchdogRAMPeak = 0;
   reply();
 }
 
+- (void)syncBaseURL:(void (^)(NSURL *))reply {
+  reply([SNTConfigurator configurator].syncBaseURL);
+}
+
+- (void)fileChangesRegex:(void (^)(NSRegularExpression *))reply {
+  reply([SNTConfigurator configurator].fileChangesRegex);
+}
+
+- (void)moreInfoURL:(void (^)(NSURL *))reply {
+  reply([SNTConfigurator configurator].moreInfoURL);
+}
+
+- (void)eventDetailURL:(void (^)(NSString *))reply {
+  reply([SNTConfigurator configurator].eventDetailURL);
+}
+
+- (void)eventDetailText:(void (^)(NSString *))reply {
+  reply([SNTConfigurator configurator].eventDetailText);
+}
+
+- (void)unknownBlockMessage:(void (^)(NSString *))reply {
+  reply([SNTConfigurator configurator].unknownBlockMessage);
+}
+
+- (void)bannedBlockMessage:(void (^)(NSString *))reply {
+  reply([SNTConfigurator configurator].bannedBlockMessage);
+}
+
+- (void)modeNotificationMonitor:(void (^)(NSString *))reply {
+  reply([SNTConfigurator configurator].modeNotificationMonitor);
+}
+
+- (void)modeNotificationLockdown:(void (^)(NSString *))reply {
+  reply([SNTConfigurator configurator].modeNotificationLockdown);
+}
+
+- (void)machineOwner:(void (^)(NSString *))reply {
+  reply([SNTConfigurator configurator].machineOwner);
+}
+
+- (void)machineID:(void (^)(NSString *))reply {
+  reply([SNTConfigurator configurator].machineID);
+}
+
+- (void)syncServerAuthRootsData:(void (^)(NSData *))reply {
+  reply([SNTConfigurator configurator].syncServerAuthRootsData);
+}
+
+- (void)syncServerAuthRootsFile:(void (^)(NSString *))reply {
+  reply([SNTConfigurator configurator].syncServerAuthRootsFile);
+}
+
+- (void)syncClientAuthCertificateFile:(void (^)(NSString *))reply {
+  reply([SNTConfigurator configurator].syncClientAuthCertificateFile);
+}
+
+- (void)syncClientAuthCertificatePassword:(void (^)(NSString *))reply {
+  reply([SNTConfigurator configurator].syncClientAuthCertificatePassword);
+}
+
+- (void)syncClientAuthCertificateCn:(void (^)(NSString *))reply {
+  reply([SNTConfigurator configurator].syncClientAuthCertificateCn);
+}
+
+- (void)syncClientAuthCertificateIssuer:(void (^)(NSString *))reply {
+  reply([SNTConfigurator configurator].syncClientAuthCertificateIssuer);
+}
+
 #pragma mark GUI Ops
 
 - (void)setNotificationListener:(NSXPCListenerEndpoint *)listener {

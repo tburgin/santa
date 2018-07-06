@@ -71,6 +71,23 @@
 - (void)ruleSyncLastSuccess:(void (^)(NSDate *))reply;
 - (void)syncCleanRequired:(void (^)(BOOL))reply;
 - (void)bundlesEnabled:(void (^)(BOOL))reply;
+- (void)syncBaseURL:(void (^)(NSURL *))reply;
+- (void)fileChangesRegex:(void (^)(NSRegularExpression *))reply;
+- (void)moreInfoURL:(void (^)(NSURL *))reply;
+- (void)eventDetailURL:(void (^)(NSString *))reply;
+- (void)eventDetailText:(void (^)(NSString *))reply;
+- (void)unknownBlockMessage:(void (^)(NSString *))reply;
+- (void)bannedBlockMessage:(void (^)(NSString *))reply;
+- (void)modeNotificationMonitor:(void (^)(NSString *))reply;
+- (void)modeNotificationLockdown:(void (^)(NSString *))reply;
+- (void)machineOwner:(void (^)(NSString *))reply;
+- (void)machineID:(void (^)(NSString *))reply;
+- (void)syncServerAuthRootsData:(void (^)(NSData *))reply;
+- (void)syncServerAuthRootsFile:(void (^)(NSString *))reply;
+- (void)syncClientAuthCertificateFile:(void (^)(NSString *))reply;
+- (void)syncClientAuthCertificatePassword:(void (^)(NSString *))reply;
+- (void)syncClientAuthCertificateCn:(void (^)(NSString *))reply;
+- (void)syncClientAuthCertificateIssuer:(void (^)(NSString *))reply;
 
 ///
 ///  GUI Ops

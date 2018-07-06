@@ -19,7 +19,6 @@
 
 #import <MOLXPCConnection/MOLXPCConnection.h>
 
-#import "SNTConfigurator.h"
 #import "SNTXPCControlInterface.h"
 
 @interface SNTCommandStatus : SNTCommand<SNTCommandProtocol>
@@ -84,7 +83,10 @@ REGISTER_COMMAND_NAME(@"status")
     dispatch_group_leave(group);
   }];
 
-  BOOL fileLogging = ([[SNTConfigurator configurator] fileChangesRegex] != nil);
+  __block BOOL fileLogging = NO;
+  [self.daemonConn.synchronousRemoteObjectProxy fileChangesRegex:^(NSRegularExpression *re) {
+    fileLogging = (re != nil);
+  }];
 
   // Kext status
   __block uint64_t cacheCount = -1;
@@ -130,8 +132,13 @@ REGISTER_COMMAND_NAME(@"status")
     dispatch_group_leave(group);
   }];
 
+  __block NSString *syncURLStr;
+  [self.daemonConn.synchronousRemoteObjectProxy syncBaseURL:^(NSURL *url) {
+    syncURLStr = url.absoluteString;
+  }];
+
   __block BOOL pushNotifications = NO;
-  if ([[SNTConfigurator configurator] syncBaseURL]) {
+  if (syncURLStr) {
     dispatch_group_enter(group);
     [[self.daemonConn remoteObjectProxy] pushNotifications:^(BOOL response) {
       pushNotifications = response;
@@ -140,7 +147,7 @@ REGISTER_COMMAND_NAME(@"status")
   }
 
   __block BOOL bundlesEnabled = NO;
-  if ([[SNTConfigurator configurator] syncBaseURL]) {
+  if (syncURLStr) {
     dispatch_group_enter(group);
     [[self.daemonConn remoteObjectProxy] bundlesEnabled:^(BOOL response) {
       bundlesEnabled = response;
@@ -159,8 +166,6 @@ REGISTER_COMMAND_NAME(@"status")
   NSString *fullSyncLastSuccessStr = [dateFormatter stringFromDate:fullSyncLastSuccess] ?: @"Never";
   NSString *ruleSyncLastSuccessStr =
       [dateFormatter stringFromDate:ruleSyncLastSuccess] ?: fullSyncLastSuccessStr;
-
-  NSString *syncURLStr = [[[SNTConfigurator configurator] syncBaseURL] absoluteString];
 
   if ([arguments containsObject:@"--json"]) {
     NSDictionary *stats = @{

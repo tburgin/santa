@@ -24,6 +24,7 @@
 @interface SNTCommandSyncManager : NSObject<SNTSyncdXPC>
 
 @property(readonly, nonatomic) BOOL daemon;
+@property(readonly, nonatomic) NSURL *syncBaseURL;
 
 ///
 ///  Use the designated initializer initWithDaemonConnection:isDaemon:
@@ -34,10 +35,12 @@
 ///  Designated initializer.
 ///
 ///  @param daemonConn A connection to santad.
+///  @param syncBaseURL A sync server URL.
 ///  @param daemon Set to YES if periodic syncing should occur.
 ///                Set to NO if a single sync should be performed. NO is default.
 ///
 - (instancetype)initWithDaemonConnection:(MOLXPCConnection *)daemonConn
+                           syncBaseURL:(NSURL *)syncBaseURL
                                 isDaemon:(BOOL)daemon NS_DESIGNATED_INITIALIZER;
 
 ///

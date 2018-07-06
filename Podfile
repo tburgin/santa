@@ -1,23 +1,23 @@
-platform :osx, "10.9"
+platform :osx, "10.11"
 
 inhibit_all_warnings!
 
 target :Santa do
   pod 'MOLCertificate'
   pod 'MOLCodesignChecker'
-  pod 'MOLXPCConnection'
+  pod 'MOLXPCConnection', :path => '~/GitHub/macops-MOLXPCConnection-bur'
 end
 
 target :santad do
   pod 'FMDB'
   pod 'MOLCertificate'
   pod 'MOLCodesignChecker'
-  pod 'MOLXPCConnection'
+  pod 'MOLXPCConnection', :path => '~/GitHub/macops-MOLXPCConnection-bur'
   target :santabs do
     pod 'FMDB'
     pod 'MOLCertificate'
     pod 'MOLCodesignChecker'
-    pod 'MOLXPCConnection'
+    pod 'MOLXPCConnection', :path => '~/GitHub/macops-MOLXPCConnection-bur'
   end
 end
 
@@ -27,7 +27,7 @@ target :santactl do
   pod 'MOLCertificate'
   pod 'MOLCodesignChecker'
   pod 'MOLFCMClient', '~> 1.3'
-  pod 'MOLXPCConnection'
+  pod 'MOLXPCConnection', :path => '~/GitHub/macops-MOLXPCConnection-bur'
 end
 
 target :LogicTests do
@@ -35,7 +35,7 @@ target :LogicTests do
   pod 'MOLAuthenticatingURLSession'
   pod 'MOLCertificate'
   pod 'MOLCodesignChecker'
-  pod 'MOLXPCConnection'
+  pod 'MOLXPCConnection', :path => '~/GitHub/macops-MOLXPCConnection-bur'
   pod 'OCMock'
 end
 

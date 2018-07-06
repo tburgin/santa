@@ -21,7 +21,6 @@
 
 #import "SNTCommandSyncConstants.h"
 #import "SNTCommandSyncState.h"
-#import "SNTConfigurator.h"
 #import "SNTSystemInfo.h"
 #import "SNTXPCControlInterface.h"
 

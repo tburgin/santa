@@ -20,7 +20,6 @@
 #import <MOLFCMClient/MOLFCMClient.h>
 #import <MOLXPCConnection/MOLXPCConnection.h>
 
-#import "SNTConfigurator.h"
 #import "SNTCommandSyncConstants.h"
 #import "SNTCommandSyncEventUpload.h"
 #import "SNTCommandSyncLogUpload.h"
@@ -89,14 +88,16 @@ static void reachabilityHandler(
 
 #pragma mark init
 
-- (instancetype)initWithDaemonConnection:(MOLXPCConnection *)daemonConn isDaemon:(BOOL)daemon {
+- (instancetype)initWithDaemonConnection:(MOLXPCConnection *)daemonConn
+                             syncBaseURL:(NSURL *)syncBaseURL
+                                isDaemon:(BOOL)daemon {
   self = [super init];
   if (self) {
     _daemonConn = daemonConn;
     _daemon = daemon;
+    _syncBaseURL = syncBaseURL;
     _fullSyncTimer = [self createSyncTimerWithBlock:^{
       [self rescheduleTimerQueue:self.fullSyncTimer secondsFromNow:self.FCMFullSyncInterval];
-      if (![[SNTConfigurator configurator] syncBaseURL]) return;
       [self lockAction:kFullSync];
       [self preflight];
       [self unlockAction:kFullSync];
@@ -104,7 +105,6 @@ static void reachabilityHandler(
     _ruleSyncTimer = [self createSyncTimerWithBlock:^{
       dispatch_source_set_timer(self.ruleSyncTimer,
                                 DISPATCH_TIME_FOREVER, DISPATCH_TIME_FOREVER, 0);
-      if (![[SNTConfigurator configurator] syncBaseURL]) return;
       [self lockAction:kRuleSync];
       SNTCommandSyncState *syncState = [self createSyncState];
       syncState.targetedRuleSync = self.targetedRuleSync;
@@ -146,7 +146,7 @@ static void reachabilityHandler(
     LOGD(@"Events upload complete");
   } else {
     LOGE(@"Events upload failed.  Will retry again once %@ is reachable",
-        [[SNTConfigurator configurator] syncBaseURL].absoluteString);
+        self.syncBaseURL.absoluteString);
     [self startReachability];
   }
 }
@@ -172,7 +172,7 @@ static void reachabilityHandler(
     // wanted them or not.  If they weren't needed the server will simply ignore them.
     reply(SNTBundleEventActionStoreEvents);
     LOGE(@"Bundle event upload failed.  Will retry again once %@ is reachable",
-        [[SNTConfigurator configurator] syncBaseURL].absoluteString);
+        self.syncBaseURL.absoluteString);
     [self startReachability];
   }
 }
@@ -369,7 +369,7 @@ static void reachabilityHandler(
       exit(1);
     }
     LOGE(@"Preflight failed, will try again once %@ is reachable",
-         [[SNTConfigurator configurator] syncBaseURL].absoluteString);
+         self.syncBaseURL.absoluteString);
     [self startReachability];
   }
 }
@@ -432,9 +432,8 @@ static void reachabilityHandler(
 - (SNTCommandSyncState *)createSyncState {
   // Gather some data needed during some sync stages
   SNTCommandSyncState *syncState = [[SNTCommandSyncState alloc] init];
-  SNTConfigurator *config = [SNTConfigurator configurator];
 
-  syncState.syncBaseURL = config.syncBaseURL;
+  syncState.syncBaseURL = self.syncBaseURL;
   if (syncState.syncBaseURL.absoluteString.length == 0) {
     LOGE(@"Missing SyncBaseURL. Can't sync without it.");
     if (!syncState.daemon) exit(1);
@@ -442,23 +441,24 @@ static void reachabilityHandler(
     LOGW(@"SyncBaseURL is not over HTTPS!");
   }
 
-  syncState.machineID = config.machineID;
+  [self.daemonConn.synchronousRemoteObjectProxy machineID:^(NSString *machineID) {
+    syncState.machineID = machineID;
+  }];
   if (syncState.machineID.length == 0) {
     LOGE(@"Missing Machine ID. Can't sync without it.");
     if (!syncState.daemon) exit(1);
   }
 
-  syncState.machineOwner = config.machineOwner;
+  [self.daemonConn.synchronousRemoteObjectProxy machineOwner:^(NSString *machineOwner) {
+    syncState.machineOwner = machineOwner;
+  }];
   if (syncState.machineOwner.length == 0) {
     syncState.machineOwner = @"";
     LOGW(@"Missing Machine Owner.");
   }
 
-  dispatch_group_t group = dispatch_group_create();
-  dispatch_group_enter(group);
-  [[self.daemonConn remoteObjectProxy] xsrfToken:^(NSString *token) {
+  [self.daemonConn.synchronousRemoteObjectProxy xsrfToken:^(NSString *token) {
     syncState.xsrfToken = token;
-    dispatch_group_leave(group);
   }];
 
   MOLAuthenticatingURLSession *authURLSession = [[MOLAuthenticatingURLSession alloc] init];
@@ -474,27 +474,47 @@ static void reachabilityHandler(
   };
 
   // Configure server auth
-  if ([config syncServerAuthRootsFile]) {
-    authURLSession.serverRootsPemFile = [config syncServerAuthRootsFile];
-  } else if ([config syncServerAuthRootsData]) {
-    authURLSession.serverRootsPemData = [config syncServerAuthRootsData];
+  __block NSString *serverRootsPemFile;
+  [self.daemonConn.synchronousRemoteObjectProxy syncServerAuthRootsFile:^(NSString *file) {
+    authURLSession.serverRootsPemFile = serverRootsPemFile = file;
+  }];
+  if (!serverRootsPemFile) {
+    [self.daemonConn.synchronousRemoteObjectProxy syncServerAuthRootsData:^(NSData *data) {
+      authURLSession.serverRootsPemData = data;
+    }];
   }
 
   // Configure client auth
-  if ([config syncClientAuthCertificateFile]) {
-    authURLSession.clientCertFile = [config syncClientAuthCertificateFile];
-    authURLSession.clientCertPassword = [config syncClientAuthCertificatePassword];
-  } else if ([config syncClientAuthCertificateCn]) {
-    authURLSession.clientCertCommonName = [config syncClientAuthCertificateCn];
-  } else if ([config syncClientAuthCertificateIssuer]) {
-    authURLSession.clientCertIssuerCn = [config syncClientAuthCertificateIssuer];
+  __block NSString *syncClientAuthCertificateFile;
+  [self.daemonConn.synchronousRemoteObjectProxy syncClientAuthCertificateFile:^(NSString *file) {
+    syncClientAuthCertificateFile = file;
+  }];
+  __block NSString *syncClientAuthCertificatePassword;
+  [self.daemonConn.synchronousRemoteObjectProxy syncClientAuthCertificatePassword:^(NSString *password) {
+    syncClientAuthCertificatePassword = password;
+  }];
+  __block NSString *syncClientAuthCertificateCn;
+  [self.daemonConn.synchronousRemoteObjectProxy syncClientAuthCertificateCn:^(NSString *name) {
+    syncClientAuthCertificateCn = name;
+  }];
+  __block NSString *syncClientAuthCertificateIssuer;
+  [self.daemonConn.synchronousRemoteObjectProxy syncClientAuthCertificateIssuer:^(NSString *issuer) {
+    syncClientAuthCertificateIssuer = issuer;
+  }];
+
+  if (syncClientAuthCertificateFile) {
+    authURLSession.clientCertFile = syncClientAuthCertificateFile;
+    authURLSession.clientCertPassword = syncClientAuthCertificatePassword;
+  } else if (syncClientAuthCertificateCn) {
+    authURLSession.clientCertCommonName = syncClientAuthCertificateCn;
+  } else if (syncClientAuthCertificateIssuer) {
+    authURLSession.clientCertIssuerCn = syncClientAuthCertificateIssuer;
   }
 
   syncState.session = [authURLSession session];
   syncState.daemonConn = self.daemonConn;
   syncState.daemon = self.daemon;
 
-  dispatch_group_wait(group, dispatch_time(DISPATCH_TIME_NOW, 5 * NSEC_PER_SEC));
   return syncState;
 }
 
@@ -524,7 +544,7 @@ static void reachabilityHandler(
 - (void)startReachability {
   dispatch_async(dispatch_get_main_queue(), ^{
     if (_reachability) return;
-    const char *nodename = [[SNTConfigurator configurator] syncBaseURL].host.UTF8String;
+    const char *nodename = self.syncBaseURL.host.UTF8String;
     _reachability = SCNetworkReachabilityCreateWithName(kCFAllocatorDefault, nodename);
     SCNetworkReachabilityContext context = {
       .info = (__bridge_retained void *)self,
