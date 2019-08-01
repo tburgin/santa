@@ -124,7 +124,15 @@ typedef struct {
   // While process names can technically be 4*MAXPATHLEN, that never
   // actually happens, so only take MAXPATHLEN and throw away any excess.
   char pname[MAXPATHLEN];
+  // Add extra data to the message.
+  void *client;
+  void *message;
 } santa_message_t;
+
+typedef union {
+  santa_message_t m;
+  santa_vnode_id_t v;
+} santa_post_id_t;
 
 // Used for the kSantaUserClientCacheBucketCount request.
 typedef struct {

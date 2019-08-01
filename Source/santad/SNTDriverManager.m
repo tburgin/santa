@@ -178,34 +178,34 @@ static void driverAppearedHandler(void *info, io_iterator_t iterator) {
 
 #pragma mark Outgoing messages
 
-- (kern_return_t)postToKernelAction:(santa_action_t)action forVnodeID:(santa_vnode_id_t)vnodeId {
+- (kern_return_t)postAction:(santa_action_t)action forID:(santa_post_id_t)i; {
   switch (action) {
     case ACTION_RESPOND_ALLOW:
       return IOConnectCallStructMethod(_connection,
                                        kSantaUserClientAllowBinary,
-                                       &vnodeId,
-                                       sizeof(vnodeId),
+                                       &i.v,
+                                       sizeof(i.v),
                                        0,
                                        0);
     case ACTION_RESPOND_DENY:
       return IOConnectCallStructMethod(_connection,
                                        kSantaUserClientDenyBinary,
-                                       &vnodeId,
-                                       sizeof(vnodeId),
+                                       &i.v,
+                                       sizeof(i.v),
                                        0,
                                        0);
     case ACTION_RESPOND_ACK:
       return IOConnectCallStructMethod(_connection,
                                        kSantaUserClientAcknowledgeBinary,
-                                       &vnodeId,
-                                       sizeof(vnodeId),
+                                       &i.v,
+                                       sizeof(i.v),
                                        0,
                                        0);
     case ACTION_RESPOND_ALLOW_COMPILER:
       return IOConnectCallStructMethod(_connection,
                                        kSantaUserClientAllowCompiler,
-                                       &vnodeId,
-                                       sizeof(vnodeId),
+                                       &i.v,
+                                       sizeof(i.v),
                                        0,
                                        0);
     default:

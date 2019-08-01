@@ -11,6 +11,8 @@
 		66067B41944ADC1C37627C20 /* libPods-santabundleservice.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 2A55D73A235850B9FA991865 /* libPods-santabundleservice.a */; };
 		AD3736AF78C41A962C26D429 /* libPods-Santa.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 4C3E743944A9D77423AA1534 /* libPods-Santa.a */; };
 		B5AE6BB811766CA492133559 /* libPods-santad.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 3700D40B536CA7F626B76156 /* libPods-santad.a */; };
+		C71A1DA322F3888E00953DE7 /* SNTEndpointSecurityManager.m in Sources */ = {isa = PBXBuildFile; fileRef = C71A1DA222F3888E00953DE7 /* SNTEndpointSecurityManager.m */; };
+		C71A1DA522F3937200953DE7 /* libEndpointSecurity.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = C71A1DA422F3937200953DE7 /* libEndpointSecurity.tbd */; };
 		C71E472F22F0F97B00921CD9 /* santad in CopyFiles */ = {isa = PBXBuildFile; fileRef = C779C4E622F0F51400EE2541 /* santad */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
 		C71E473122F0FAA100921CD9 /* com.google.santa.daemon.systemextension in CopyFiles */ = {isa = PBXBuildFile; fileRef = C7A8308022F0F81F00F856AC /* com.google.santa.daemon.systemextension */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		C77179C922F207810047DF1A /* SNTXPCProxyInterface.m in Sources */ = {isa = PBXBuildFile; fileRef = C779C42B22F0EA1A00EE2541 /* SNTXPCProxyInterface.m */; };
@@ -161,6 +163,10 @@
 		7AF15DF785BAA0EAB0BE340D /* Pods-santad.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-santad.release.xcconfig"; path = "Target Support Files/Pods-santad/Pods-santad.release.xcconfig"; sourceTree = "<group>"; };
 		91FF0B4E62F1E90A88478993 /* libPods-sysx.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-sysx.a"; sourceTree = BUILT_PRODUCTS_DIR; };
 		C05543B3701F50CA798B4B11 /* Pods-sysx.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-sysx.release.xcconfig"; path = "Target Support Files/Pods-sysx/Pods-sysx.release.xcconfig"; sourceTree = "<group>"; };
+		C71A1DA022F3849000953DE7 /* SNTEventProvider.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = SNTEventProvider.h; path = "../../../../../../System/Volumes/Data/Users/bur/GitHub/santa-bur/Source/santad/SNTEventProvider.h"; sourceTree = "<group>"; };
+		C71A1DA122F3888E00953DE7 /* SNTEndpointSecurityManager.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = SNTEndpointSecurityManager.h; path = "../../../../../../System/Volumes/Data/Users/bur/GitHub/santa-bur/Source/santad/SNTEndpointSecurityManager.h"; sourceTree = "<group>"; };
+		C71A1DA222F3888E00953DE7 /* SNTEndpointSecurityManager.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; name = SNTEndpointSecurityManager.m; path = "../../../../../../System/Volumes/Data/Users/bur/GitHub/santa-bur/Source/santad/SNTEndpointSecurityManager.m"; sourceTree = "<group>"; };
+		C71A1DA422F3937200953DE7 /* libEndpointSecurity.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = libEndpointSecurity.tbd; path = usr/lib/libEndpointSecurity.tbd; sourceTree = SDKROOT; };
 		C779C2DE22F0E95000EE2541 /* Santa.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Santa.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		C779C3AD22F0EA1900EE2541 /* SNTApplication.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = SNTApplication.m; sourceTree = "<group>"; };
 		C779C3AE22F0EA1900EE2541 /* SNTCompilerController.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SNTCompilerController.h; sourceTree = "<group>"; };
@@ -356,6 +362,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				C71A1DA522F3937200953DE7 /* libEndpointSecurity.tbd in Frameworks */,
 				B5AE6BB811766CA492133559 /* libPods-santad.a in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -441,6 +448,9 @@
 				C779C3AF22F0EA1900EE2541 /* SNTDaemonControlController.m */,
 				C779C3B022F0EA1900EE2541 /* SNTDatabaseController.h */,
 				C779C3C422F0EA1900EE2541 /* SNTDatabaseController.m */,
+				C71A1DA022F3849000953DE7 /* SNTEventProvider.h */,
+				C71A1DA122F3888E00953DE7 /* SNTEndpointSecurityManager.h */,
+				C71A1DA222F3888E00953DE7 /* SNTEndpointSecurityManager.m */,
 				C779C3B622F0EA1900EE2541 /* SNTDriverManager.h */,
 				C779C3C722F0EA1900EE2541 /* SNTDriverManager.m */,
 				C779C3D422F0EA1900EE2541 /* SNTExecutionController.h */,
@@ -771,6 +781,7 @@
 		D2DA9449115697B603A40259 /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				C71A1DA422F3937200953DE7 /* libEndpointSecurity.tbd */,
 				4C3E743944A9D77423AA1534 /* libPods-Santa.a */,
 				3700D40B536CA7F626B76156 /* libPods-santad.a */,
 				91FF0B4E62F1E90A88478993 /* libPods-sysx.a */,
@@ -1137,6 +1148,7 @@
 				C779C4F622F0F6AB00EE2541 /* SNTDaemonControlController.m in Sources */,
 				C779C4F122F0F60000EE2541 /* SNTEventLog.m in Sources */,
 				C7A8306D22F0F72600F856AC /* SNTRule.m in Sources */,
+				C71A1DA322F3888E00953DE7 /* SNTEndpointSecurityManager.m in Sources */,
 				C7A8307022F0F74600F856AC /* SNTConfigurator.m in Sources */,
 				C7A8307422F0F76B00F856AC /* SNTXPCBundleServiceInterface.m in Sources */,
 				C779C4F722F0F6AE00EE2541 /* SNTDatabaseController.m in Sources */,
