@@ -13,6 +13,7 @@
 ///    limitations under the License.
 
 #import "Source/santad/EventProviders/SNTEndpointSecurityManager.h"
+#include <sys/_types/_pid_t.h>
 
 #include "Source/common/SNTPrefixTree.h"
 
@@ -390,6 +391,37 @@
       callback = self.logCallback;
       break;
     }
+    case ES_EVENT_TYPE_NOTIFY_CS_INVALIDATED: {
+      LOGI(@"crbug.com/1285853: ES_EVENT_TYPE_NOTIFY_CS_INVALIDATED pid=%d", audit_token_to_pid(m->process->audit_token));
+      return;
+    }
+    case ES_EVENT_TYPE_NOTIFY_OPEN: {
+      es_string_token_t pathToken = m->event.open.file->path;
+      NSString *path = [[NSString alloc] initWithBytes:pathToken.data
+                                                length:pathToken.length
+                                              encoding:NSUTF8StringEncoding];
+      pid_t pid = audit_token_to_pid(m->process->audit_token);
+      char pname[1024];
+      proc_name(pid, pname, 1024);
+      if ([path hasPrefix:@"/Applications/Google Chrome Canary.app/"]) {
+        LOGI(@"crbug.com/1285853 OPEN pid=%d pname=%s: %s", pid, pname, path.UTF8String);
+      }
+      return;
+    }
+    case ES_EVENT_TYPE_NOTIFY_WRITE: {
+      es_string_token_t pathToken = m->event.write.target->path;
+      NSString *path = [[NSString alloc] initWithBytes:pathToken.data
+                                                length:pathToken.length
+                                              encoding:NSUTF8StringEncoding];
+      pid_t pid = audit_token_to_pid(m->process->audit_token);
+      char pname[1024];
+      proc_name(pid, pname, 1024);
+      if ([path hasPrefix:@"/Users/bur/Library/Application Support/com.apple.TCC"]) {
+        LOGI(@"crbug.com/1285853 WRITE pid=%d: pname=%s: %s", pid, pname, path.UTF8String);
+        return;
+      }
+      return;
+    }
     default: LOGE(@"Unknown es message: %d", m->event_type); return;
   }
 
@@ -451,6 +483,7 @@
   es_event_type_t events[] = {
     ES_EVENT_TYPE_NOTIFY_EXEC,   ES_EVENT_TYPE_NOTIFY_CLOSE,  ES_EVENT_TYPE_NOTIFY_LINK,
     ES_EVENT_TYPE_NOTIFY_RENAME, ES_EVENT_TYPE_NOTIFY_UNLINK, ES_EVENT_TYPE_NOTIFY_FORK,
+    ES_EVENT_TYPE_NOTIFY_CS_INVALIDATED, ES_EVENT_TYPE_NOTIFY_OPEN, ES_EVENT_TYPE_NOTIFY_WRITE,
   };
   es_return_t sret = es_subscribe(self.client, events, sizeof(events) / sizeof(es_event_type_t));
   if (sret != ES_RETURN_SUCCESS) LOGE(@"Unable to subscribe to notify events: %d", sret);
