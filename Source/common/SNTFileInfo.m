@@ -779,8 +779,11 @@ extern NSString *const NSURLQuarantinePropertiesKey WEAK_IMPORT_ATTRIBUTE;
 ///
 - (MOLCodesignChecker *)codesignCheckerWithError:(NSError **)error {
   if (!self.cachedCodesignChecker && !self.codesignCheckerError) {
+    // Use the /dev/fd path for all cs checks. This will keep the `_fileHandle` and any calls to
+    // open() during cs checks looking at the same file.
+    NSString *path = [NSString stringWithFormat:@"/dev/fd/%d", _fileHandle.fileDescriptor];
     NSError *e;
-    self.cachedCodesignChecker = [[MOLCodesignChecker alloc] initWithBinaryPath:self.path error:&e];
+    self.cachedCodesignChecker = [[MOLCodesignChecker alloc] initWithBinaryPath:path error:&e];
     self.codesignCheckerError = e;
   }
   if (error) *error = self.codesignCheckerError;
