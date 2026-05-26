@@ -19,11 +19,22 @@
 @class SNTSyncState;
 @class MOLXPCConnection;
 
+/// Callback surface that stages may invoke to reach back into the long-lived
+/// sync manager. Kept minimal — the manager already implements these methods
+/// for other reasons, this protocol just narrows the contract a stage relies
+/// on. Currently only the /commands stage uses this (to fire bundle-walk +
+/// event upload for EventUpload commands).
+@protocol SNTSyncStageDelegate <NSObject>
+- (void)eventUploadForPath:(nonnull NSString*)path
+                     reply:(nonnull void (^)(NSError* _Nullable error))reply;
+@end
+
 @interface SNTSyncStage : NSObject
 
 @property(readonly, nonnull) NSURLSession* urlSession;
 @property(readonly, nonnull) SNTSyncState* syncState;
 @property(readonly, nonnull) MOLXPCConnection* daemonConn;
+@property(weak, nullable) id<SNTSyncStageDelegate> delegate;
 
 /**
   Initialize this stage. Designated initializer.

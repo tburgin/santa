@@ -84,7 +84,7 @@ static X509* CreateCertWithDNSSANBytes(const char* data, size_t len) {
                             jwt:(NSString*)jwt
                    pushDeviceID:(NSString*)deviceID
                            tags:(NSArray<NSString*>*)tags;
-- (void)handlePushNotificationForSubject:(NSString*)subject;
+- (void)handlePushNotificationForSubject:(NSString*)subject withPayload:(NSString*)payload;
 @end
 
 @interface SNTPushClientNATSTest : XCTestCase
@@ -643,8 +643,9 @@ static X509* CreateCertWithDNSSANBytes(const char* data, size_t len) {
         [expectation fulfill];
       });
 
-  // When: A tag push notification is received
-  [self.client handlePushNotificationForSubject:@"santa.tag.production"];
+  // When: A tag push notification is received with no publisher-specified
+  // jitter, so the default 0-180s subject-based jitter is used.
+  [self.client handlePushNotificationForSubject:@"santa.tag.production" withPayload:@""];
 
   // Then: syncSecondsFromNow should be called with jitter in [0, 180]
   [self waitForExpectations:@[ expectation ] timeout:2.0];
@@ -666,10 +667,60 @@ static X509* CreateCertWithDNSSANBytes(const char* data, size_t len) {
         [expectation fulfill];
       });
 
-  // When: A host push notification is received
-  [self.client handlePushNotificationForSubject:@"santa.host.ABC123"];
+  // When: A host push notification is received with no payload.
+  [self.client handlePushNotificationForSubject:@"santa.host.ABC123" withPayload:@""];
 
   // Then: syncSecondsFromNow should be called with 0 (no jitter)
+  [self waitForExpectations:@[ expectation ] timeout:2.0];
+}
+
+- (void)testPublisherSpecifiedJitterPayloadIsHonored {
+  // Given: Client is initialized
+  self.client = [[SNTPushClientNATS alloc] initWithSyncDelegate:self.mockSyncDelegate];
+
+  XCTestExpectation* expectation =
+      [self expectationWithDescription:@"syncSecondsFromNow called with publisher-specified jitter"];
+
+  OCMStub([self.mockSyncDelegate syncSecondsFromNow:0])
+      .ignoringNonObjectArgs()
+      .andDo(^(NSInvocation* invocation) {
+        uint64_t seconds;
+        [invocation getArgument:&seconds atIndex:2];
+        XCTAssertEqual(seconds, 42u);
+        [expectation fulfill];
+      });
+
+  // When: A tag push notification arrives carrying a publisher-specified
+  // jitter payload. The payload value must override the default 0-180s
+  // tag jitter.
+  [self.client handlePushNotificationForSubject:@"santa.tag.production" withPayload:@"42"];
+
+  // Then: syncSecondsFromNow should be called with exactly 42
+  [self waitForExpectations:@[ expectation ] timeout:2.0];
+}
+
+- (void)testPublisherSpecifiedJitterPayloadZeroIsHonored {
+  // Given: Client is initialized
+  self.client = [[SNTPushClientNATS alloc] initWithSyncDelegate:self.mockSyncDelegate];
+
+  XCTestExpectation* expectation = [self
+      expectationWithDescription:@"syncSecondsFromNow called with publisher-specified zero jitter"];
+
+  OCMStub([self.mockSyncDelegate syncSecondsFromNow:0])
+      .ignoringNonObjectArgs()
+      .andDo(^(NSInvocation* invocation) {
+        uint64_t seconds;
+        [invocation getArgument:&seconds atIndex:2];
+        XCTAssertEqual(seconds, 0u);
+        [expectation fulfill];
+      });
+
+  // When: A tag push arrives with an explicit "0" payload. Even though the
+  // subject would normally trigger 0-180s random jitter, the publisher's
+  // zero must override it and trigger an immediate sync.
+  [self.client handlePushNotificationForSubject:@"santa.tag.production" withPayload:@"0"];
+
+  // Then: syncSecondsFromNow should be called with exactly 0
   [self waitForExpectations:@[ expectation ] timeout:2.0];
 }
 

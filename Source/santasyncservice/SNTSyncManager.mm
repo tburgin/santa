@@ -35,6 +35,7 @@
 #import "Source/santasyncservice/SNTPushClientNATS.h"
 #import "Source/santasyncservice/SNTPushNotifications.h"
 #import "Source/santasyncservice/SNTSyncConfigBundle.h"
+#import "Source/santasyncservice/SNTSyncCommands.h"
 #import "Source/santasyncservice/SNTSyncEventUpload.h"
 #import "Source/santasyncservice/SNTSyncLogging.h"
 #import "Source/santasyncservice/SNTSyncPostflight.h"
@@ -45,7 +46,7 @@
 
 static const uint8_t kMaxEnqueuedSyncs = 2;
 
-@interface SNTSyncManager () <SNTPushNotificationsSyncDelegate>
+@interface SNTSyncManager () <SNTPushNotificationsSyncDelegate, SNTSyncStageDelegate>
 
 @property(nonatomic) dispatch_source_t fullSyncTimer;
 @property(nonatomic) dispatch_source_t ruleSyncTimer;
@@ -651,11 +652,26 @@ static const uint8_t kMaxEnqueuedSyncs = 2;
   SNTSyncPostflight* p = [[SNTSyncPostflight alloc] initWithState:syncState];
   if ([p sync]) {
     SLOGD(@"Postflight complete");
-    SLOGI(@"Sync completed successfully");
-    return SNTSyncStatusTypeSuccess;
+    return [self commandsWithSyncState:syncState];
   }
   SLOGE(@"Postflight failed");
   return SNTSyncStatusTypePostflightFailed;
+}
+
+- (SNTSyncStatusType)commandsWithSyncState:(SNTSyncState*)syncState {
+  SLOGD(@"Commands stage starting");
+  SNTSyncCommands* p = [[SNTSyncCommands alloc] initWithState:syncState];
+  p.delegate = self;
+  // Soft failure: a /commands hiccup must not fail the whole sync. The
+  // stage itself dispatches command execution onto a background queue and
+  // returns immediately, so this call is non-blocking for any actual work.
+  if (![p sync]) {
+    SLOGW(@"Commands stage failed; continuing");
+  } else {
+    SLOGD(@"Commands stage complete");
+  }
+  SLOGI(@"Sync completed successfully");
+  return SNTSyncStatusTypeSuccess;
 }
 
 #pragma mark internal helpers

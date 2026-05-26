@@ -664,16 +664,23 @@ static int NATSSSLVerifyCallback(int preverifyOk, void* ctx) {
 }
 
 // Handle a push notification for the given subject by dispatching a sync.
-// Tag subjects (santa.tag.*) get a random jitter delay of 0-180 seconds to
-// avoid thundering herd when many hosts share the same tag. Host subjects
-// (santa.host.*) trigger an immediate sync.
-- (void)handlePushNotificationForSubject:(NSString*)subject {
+// `payload` is the NATS message body decoded as UTF-8. When non-empty it's
+// parsed as the publisher-specified jitter in seconds — Workshop sets "0"
+// for new-commands pushes that need immediate pickup, a small positive
+// value for bulkier fan-outs that benefit from staggering. An empty
+// payload falls back to the legacy subject-based default: santa.tag.* gets
+// 0-180s random jitter, santa.host.* gets 0.
+- (void)handlePushNotificationForSubject:(NSString*)subject withPayload:(NSString*)payload {
   dispatch_async(self.messageQueue, ^{
     if (!self.isShuttingDown) {
       uint32_t jitterSeconds = 0;
-      if ([subject hasPrefix:@"santa.tag."]) {
+      if (payload.length > 0) {
+        jitterSeconds = (uint32_t)payload.integerValue;
+        LOGI(@"NATS: Scheduling sync in %u seconds (publisher-specified) on %@", jitterSeconds,
+             subject);
+      } else if ([subject hasPrefix:@"santa.tag."]) {
         jitterSeconds = arc4random_uniform(181);
-        LOGI(@"NATS: Scheduling sync in %u seconds (jitter) due to tag message on %@",
+        LOGI(@"NATS: Scheduling sync in %u seconds (default tag jitter) due to message on %@",
              jitterSeconds, subject);
       } else {
         LOGI(@"NATS: Triggering immediate sync due to message on %@", subject);
@@ -724,7 +731,7 @@ static void messageHandler(natsConnection* nc, natsSubscription* sub, natsMsg* m
   //
   // IMPORTANT: Do not touch the nats objects in this block they are owned by
   // the nats library and will be destroyed after this block.
-  [self handlePushNotificationForSubject:msgSubject];
+  [self handlePushNotificationForSubject:msgSubject withPayload:msgData];
 
   natsMsg_Destroy(msg);
 }

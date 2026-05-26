@@ -17,11 +17,13 @@
 #include <CommonCrypto/CommonHMAC.h>
 #include <google/protobuf/descriptor.h>
 
+#import "Source/common/MOLXPCConnection.h"
 #import "Source/common/SNTConfigurator.h"
 #import "Source/common/SNTKillCommand.h"
 #import "Source/common/SNTLogging.h"
 #import "Source/common/SNTXPCControlInterface.h"
 #include "Source/common/String.h"
+#include "Source/santasyncservice/SNTCommandHandlers.h"
 #include "absl/cleanup/cleanup.h"
 #include "commands/v1.pb.h"
 
@@ -97,48 +99,6 @@ bool VerifyCommandRequestTimestamp(const ::pbv1::SantaCommandRequest& command) {
   return true;
 }
 
-void SetKillResponseError(SNTKillResponseError error, ::pbv1::KillResponse* pbResponse) {
-  switch (error) {
-    case SNTKillResponseErrorListPids:
-      pbResponse->set_error(::pbv1::KillResponse::ERROR_LIST_PIDS);
-      break;
-    case SNTKillResponseErrorInvalidRequest:
-      pbResponse->set_error(::pbv1::KillResponse::ERROR_INTERNAL);
-      break;
-    case SNTKillResponseErrorNone:
-      // Do not set the error if there was none
-      break;
-    default: pbResponse->set_error(::pbv1::KillResponse::ERROR_INTERNAL); break;
-  }
-}
-
-void SetKilledProcessError(SNTKilledProcessError error, ::pbv1::KillResponse::Process* pbProcess) {
-  switch (error) {
-    case SNTKilledProcessErrorUnknown:
-      pbProcess->set_error(::pbv1::KillResponse::KILL_ERROR_INTERNAL);
-      break;
-    case SNTKilledProcessErrorInvalidTarget:
-      pbProcess->set_error(::pbv1::KillResponse::KILL_ERROR_INVALID_TARGET);
-      break;
-    case SNTKilledProcessErrorNotPermitted:
-      pbProcess->set_error(::pbv1::KillResponse::KILL_ERROR_OPERATION_NOT_PERMITTED);
-      break;
-    case SNTKilledProcessErrorNoSuchProcess:
-      pbProcess->set_error(::pbv1::KillResponse::KILL_ERROR_NO_SUCH_PROCESS);
-      break;
-    case SNTKilledProcessErrorInvalidArgument:
-      pbProcess->set_error(::pbv1::KillResponse::KILL_ERROR_INVALID_ARGUMENT);
-      break;
-    case SNTKilledProcessErrorBootSessionMismatch:
-      pbProcess->set_error(::pbv1::KillResponse::KILL_ERROR_BOOT_SESSION_MISMATCH);
-      break;
-    case SNTKilledProcessErrorNone:
-      // Do not set the error if there was none
-      break;
-    default: pbProcess->set_error(::pbv1::KillResponse::KILL_ERROR_INTERNAL); break;
-  }
-}
-
 }  // namespace
 
 // Forward declaration of private interface to access private properties
@@ -207,128 +167,61 @@ void SetKilledProcessError(SNTKilledProcessError error, ::pbv1::KillResponse::Pr
   return YES;
 }
 
-// Handle PingRequest command
-// Always returns a successful response. Failures are handled by the caller.
+// Per-command handlers — the implementations live in SNTCommandHandlers so
+// both NATS and the HTTP /commands stage call the same code. These wrappers
+// keep the existing Objective-C category surface (callers in this file pass
+// `self.syncDelegate`).
 - (::pbv1::PingResponse*)handlePingRequest:(const ::pbv1::PingRequest&)pingRequest
                            withCommandUUID:(NSString*)uuid
                                    onArena:(google::protobuf::Arena*)arena {
-  return google::protobuf::Arena::Create<::pbv1::PingResponse>(arena);
+  return santa::HandlePingRequest(pingRequest, uuid, arena);
 }
 
-// Handle KillRequest command
 - (::pbv1::KillResponse*)handleKillRequest:(const ::pbv1::KillRequest&)pbKillReq
                            withCommandUUID:(NSString*)uuid
                                    onArena:(google::protobuf::Arena*)arena {
-  auto pbKillResponse = google::protobuf::Arena::Create<::pbv1::KillResponse>(arena);
-  SNTKillRequest* req;
-  switch (pbKillReq.process_case()) {
-    case ::pbv1::KillRequest::kRunningProcess:
-      req = [[SNTKillRequestRunningProcess alloc]
-             initWithUUID:uuid
-                      pid:pbKillReq.running_process().pid()
-               pidversion:pbKillReq.running_process().pidversion()
-          bootSessionUUID:StringToNSString(pbKillReq.running_process().boot_session_uuid())];
-      if (!req) {
-        pbKillResponse->set_error(::pbv1::KillResponse::ERROR_INVALID_RUNNING_PROCESS);
-      }
-      break;
-    case ::pbv1::KillRequest::kCdhash:
-      req = [[SNTKillRequestCDHash alloc] initWithUUID:uuid
-                                                cdHash:StringToNSString(pbKillReq.cdhash())];
-      if (!req) {
-        pbKillResponse->set_error(::pbv1::KillResponse::ERROR_INVALID_CDHASH);
-      }
-      break;
-    case ::pbv1::KillRequest::kSigningId:
-      req = [[SNTKillRequestSigningID alloc] initWithUUID:uuid
-                                                signingID:StringToNSString(pbKillReq.signing_id())];
-      if (!req) {
-        pbKillResponse->set_error(::pbv1::KillResponse::ERROR_INVALID_SIGNING_ID);
-      }
-      break;
-    case ::pbv1::KillRequest::kTeamId:
-      req = [[SNTKillRequestTeamID alloc] initWithUUID:uuid
-                                                teamID:StringToNSString(pbKillReq.team_id())];
-      if (!req) {
-        pbKillResponse->set_error(::pbv1::KillResponse::ERROR_INVALID_TEAM_ID);
-      }
-      break;
-    default: pbKillResponse->set_error(::pbv1::KillResponse::ERROR_UNKNOWN_PROCESS_TYPE);
-  }
-
-  if (!req) {
-    return pbKillResponse;
-  }
-
-  id<SNTPushNotificationsSyncDelegate> strongSyncDelegate = self.syncDelegate;
-  if (!strongSyncDelegate) {
-    pbKillResponse->set_error(::pbv1::KillResponse::ERROR_INTERNAL);
-    return pbKillResponse;
-  }
-
-  dispatch_semaphore_t sema = dispatch_semaphore_create(0);
-  __block SNTKillResponse* resp;
-  [[[strongSyncDelegate daemonConnection] remoteObjectProxy]
-      killProcesses:req
-              reply:^(SNTKillResponse* killResponse) {
-                resp = killResponse;
-                dispatch_semaphore_signal(sema);
-              }];
-
-  if (dispatch_semaphore_wait(sema, dispatch_time(DISPATCH_TIME_NOW, kKillResponseTimeoutSeconds *
-                                                                         NSEC_PER_SEC)) != 0) {
-    pbKillResponse->set_error(::santa::commands::v1::KillResponse::ERROR_TIMEOUT);
-    return pbKillResponse;
-  }
-
-  SetKillResponseError(resp.error, pbKillResponse);
-
-  for (SNTKilledProcess* killedProc in resp.killedProcesses) {
-    auto pbProc = google::protobuf::Arena::Create<::pbv1::KillResponse::Process>(arena);
-
-    pbProc->set_pid(killedProc.pid);
-    pbProc->set_pidversion(killedProc.pidversion);
-    SetKilledProcessError(killedProc.error, pbProc);
-
-    pbKillResponse->mutable_processes()->UnsafeArenaAddAllocated(pbProc);
-  }
-
-  return pbKillResponse;
+  MOLXPCConnection* daemonConn = [self.syncDelegate daemonConnection];
+  santa::SNTKillRequestExecutorBlock executor = ^SNTKillResponse*(SNTKillRequest* req) {
+    if (!daemonConn) {
+      return nil;
+    }
+    dispatch_semaphore_t sema = dispatch_semaphore_create(0);
+    __block SNTKillResponse* resp;
+    [[daemonConn remoteObjectProxy] killProcesses:req
+                                            reply:^(SNTKillResponse* killResponse) {
+                                              resp = killResponse;
+                                              dispatch_semaphore_signal(sema);
+                                            }];
+    if (dispatch_semaphore_wait(
+            sema, dispatch_time(DISPATCH_TIME_NOW,
+                                kKillResponseTimeoutSeconds * NSEC_PER_SEC)) != 0) {
+      return nil;
+    }
+    return resp;
+  };
+  return santa::HandleKillRequest(pbKillReq, uuid, arena, executor);
 }
 
-// Handle EventUploadRequest command
 - (::pbv1::EventUploadResponse*)handleEventUploadRequest:
                                     (const ::pbv1::EventUploadRequest&)eventUploadRequest
                                          withCommandUUID:(NSString*)uuid
                                                  onArena:(google::protobuf::Arena*)arena {
-  auto pbResponse = google::protobuf::Arena::Create<::pbv1::EventUploadResponse>(arena);
-
-  NSString* path = StringToNSString(eventUploadRequest.path());
-  if (path.length == 0) {
-    LOGE(@"NATS: EventUploadRequest has empty path");
-    pbResponse->set_error(::pbv1::EventUploadResponse::ERROR_INVALID_PATH);
-    return pbResponse;
+  id<SNTPushNotificationsSyncDelegate> syncDelegate = self.syncDelegate;
+  santa::SNTEventUploadExecutorBlock executor = nil;
+  if (syncDelegate) {
+    executor = ^(NSString* path) {
+      [syncDelegate eventUploadForPath:path
+                                 reply:^(NSError* error) {
+                                   if (error) {
+                                     LOGE(@"EventUploadRequest failed for path %@: %@", path,
+                                          error);
+                                   } else {
+                                     LOGI(@"EventUploadRequest completed for path %@", path);
+                                   }
+                                 }];
+    };
   }
-
-  id<SNTPushNotificationsSyncDelegate> strongSyncDelegate = self.syncDelegate;
-  if (!strongSyncDelegate) {
-    LOGE(@"NATS: EventUploadRequest failed - no sync delegate");
-    pbResponse->set_error(::pbv1::EventUploadResponse::ERROR_INTERNAL);
-    return pbResponse;
-  }
-
-  // Fire off the event upload asynchronously - don't wait for completion
-  [strongSyncDelegate
-      eventUploadForPath:path
-                   reply:^(NSError* error) {
-                     if (error) {
-                       LOGE(@"NATS: EventUploadRequest failed for path %@: %@", path, error);
-                     } else {
-                       LOGI(@"NATS: EventUploadRequest completed for path %@", path);
-                     }
-                   }];
-
-  return pbResponse;
+  return santa::HandleEventUploadRequest(eventUploadRequest, uuid, arena, executor);
 }
 
 // Dispatch Santa command to appropriate handler based on command type

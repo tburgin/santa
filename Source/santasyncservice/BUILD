@@ -26,10 +26,10 @@ objc_library(
         "SNTPushNotifications.h",
     ],
     deps = [
+        ":SNTCommandHandlers",
         ":SNTSyncState",
         "//Source/common:MOLXPCConnection",
         "//Source/common:SNTConfigurator",
-        "//Source/common:SNTKillCommand",
         "//Source/common:SNTLogging",
         "//Source/common:SNTSyncConstants",
         "//Source/common:SNTSystemInfo",
@@ -37,6 +37,33 @@ objc_library(
         "//Source/common:String",
         "@abseil-cpp//absl/cleanup:cleanup",
         "@nats_c//:nats",
+        "@northpolesec_protos//commands:v1_cc_proto",
+    ],
+)
+
+objc_library(
+    name = "SNTCommandHandlers",
+    srcs = ["SNTCommandHandlers.mm"],
+    hdrs = [
+        "SNTCommandHandlers.h",
+        "SNTPushNotifications.h",
+    ],
+    deps = [
+        "//Source/common:MOLXPCConnection",
+        "//Source/common:SNTKillCommand",
+        "//Source/common:SNTLogging",
+        "//Source/common:SNTXPCControlInterface",
+        "//Source/common:String",
+        "@northpolesec_protos//commands:v1_cc_proto",
+    ],
+)
+
+santa_unit_test(
+    name = "SNTCommandHandlersTest",
+    srcs = ["SNTCommandHandlersTest.mm"],
+    deps = [
+        ":SNTCommandHandlers",
+        "//Source/common:SNTKillCommand",
         "@northpolesec_protos//commands:v1_cc_proto",
     ],
 )
@@ -199,6 +226,8 @@ objc_library(
     srcs = [
         "SNTPushClientFCM.h",
         "SNTPushClientFCM.mm",
+        "SNTSyncCommands.h",
+        "SNTSyncCommands.mm",
         "SNTSyncEventUpload.h",
         "SNTSyncEventUpload.mm",
         "SNTSyncManager.mm",
@@ -216,6 +245,7 @@ objc_library(
         ":FCM_lib",
         ":NATS_lib",
         ":ProtoTraits",
+        ":SNTCommandHandlers",
         ":SNTPushNotificationsTracker",
         ":SNTSyncConfigBundle",
         ":SNTSyncLogging",
@@ -255,6 +285,7 @@ objc_library(
         "//Source/common:SNTXPCSyncServiceInterface",
         "//Source/common:String",
         "//Source/common/ne:SNTSyncNetworkExtensionSettings",
+        "@northpolesec_protos//commands:v1_cc_proto",
         "@northpolesec_protos//syncv2:v2_cc_proto",
         "@protobuf//src/google/protobuf/json",
     ],
@@ -269,6 +300,8 @@ santa_unit_test(
         "SNTPushClientFCM.h",
         "SNTPushClientFCM.mm",
         "SNTPushNotifications.h",
+        "SNTSyncCommands.h",
+        "SNTSyncCommands.mm",
         "SNTSyncEventUpload.h",
         "SNTSyncEventUpload.mm",
         "SNTSyncManager.h",
@@ -289,6 +322,7 @@ santa_unit_test(
     deps = [
         ":FCM_lib",
         ":NATS_lib",
+        ":SNTCommandHandlers",
         ":SNTPushNotificationsTracker",
         ":SNTSyncConfigBundle",
         ":SNTSyncLogging",
@@ -327,6 +361,7 @@ santa_unit_test(
         "//Source/common:String",
         "//Source/common/ne:SNTSyncNetworkExtensionSettings",
         "@OCMock",
+        "@northpolesec_protos//commands:v1_cc_proto",
         "@northpolesec_protos//sync:v1_cc_proto",
         "@northpolesec_protos//syncv2:v2_cc_proto",
         "@protobuf//src/google/protobuf/json",
@@ -340,6 +375,8 @@ santa_unit_test(
         "SNTPushClientFCM.h",
         "SNTPushClientFCM.mm",
         "SNTPushNotifications.h",
+        "SNTSyncCommands.h",
+        "SNTSyncCommands.mm",
         "SNTSyncEventUpload.h",
         "SNTSyncEventUpload.mm",
         "SNTSyncManager.h",
@@ -358,6 +395,7 @@ santa_unit_test(
     deps = [
         ":FCM_lib",
         ":NATS_lib",
+        ":SNTCommandHandlers",
         ":SNTPushNotificationsTracker",
         ":SNTSyncConfigBundle",
         ":SNTSyncLogging",
@@ -394,6 +432,7 @@ santa_unit_test(
         "//Source/common:String",
         "//Source/common/ne:SNTSyncNetworkExtensionSettings",
         "@OCMock",
+        "@northpolesec_protos//commands:v1_cc_proto",
         "@northpolesec_protos//sync:v1_cc_proto",
         "@northpolesec_protos//syncv2:v2_cc_proto",
         "@protobuf//src/google/protobuf/json",
@@ -526,6 +565,7 @@ santa_unit_test(
 test_suite(
     name = "unit_tests",
     tests = [
+        ":SNTCommandHandlersTest",
         ":SNTPushClientNATSCommandTest",
         ":SNTPushClientNATSConnectionTest",
         ":SNTPushClientNATSTest",
